@@ -1,0 +1,35 @@
+#include "lcd_utils.h"
+#include "drawBullet.h"
+#include "drawComet.h"
+
+void checkCollision(){
+  int i; int j; //i is index for comets array, j is index for bullets array
+  u_char chunk= 0;
+  for(i = 0; i < MAX_COMETS; i++){
+    if(comets[i].x != 0){
+      for(j = 0; j < MAX_BULLETS; j++){
+
+	  if(bullets[j].x != 0){
+	    if(lcd_getYMajor(bullets[j].y) == lcd_getYMajor(comets[i].y)){
+	      if(bullets[j].x == comets[i].x){
+		chunk = (1<< lcd_getYMinor(bullets[j].y));
+		if(comets[i].shape & chunk){
+		clearComet(comets[i].x, comets[i].y);
+		comets[i].x = 100;
+		comets[i].y = 0;
+
+		clearBullet(bullets[j].x, bullets[j].y);
+		clearBullet(bullets[j].x-1, bullets[j].y);
+		bullets[j].x = 0;
+		bullets[j].y = 0;
+		
+		updateScore(1);
+
+		}
+	      }
+	    }
+	  }
+      }
+    }
+  }
+}
