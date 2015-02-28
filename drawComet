@@ -1,0 +1,80 @@
+#include <stdlib.h>
+#include "lcd_utils.h"
+#include "drawComet.h"
+
+#define COMET_FREQUENCY 18
+
+int cf = COMET_FREQUENCY;                  //controls comet spawn rate
+int cometCount = 0;                        //keeps count of total comets on screen
+int size = 1;                              //used to alternate between comet shapes
+
+
+void clearComet(u_char x, u_char y)       //deletes chunks that compose a comet
+{
+  u_char yMajor = lcd_getYMajor(y);
+  lcd_writeChunkAddr(0, x+3, yMajor);    
+  lcd_setAddr(x+2, yMajor);
+  lcd_writeChunk(0);
+  lcd_setAddr(x+1, yMajor);
+  lcd_writeChunk(0);
+  lcd_setAddr(x, yMajor);
+  lcd_writeChunk(0);
+}
+
+
+void drawComet(u_char x, u_char y, u_char cometShape)  //draws comets on lcd screen
+{
+  u_char majorYTop = lcd_getYMajor(y);
+  
+  // Clear the comet
+  clearComet(x+1, y);                                  //clears comets previous position
+  u_char chunk = cometShape;
+ 
+  lcd_writeChunkAddr(chunk, x, majorYTop); lcd_writeChunk(chunk);
+  lcd_writeChunk(chunk); lcd_writeChunk(chunk);
+}
+
+
+void makeComet(u_char yPos)                           //adds comets to array every 
+{                                                     //interval defined by COMET_FREQUENCY
+  cf--;                                               //makeComet is utilized in the timer
+  if(cf == 0){
+    if(cometCount < MAX_COMETS){
+      comets[cometCount].x = 90;                    //90 initializes comets on right side of screen
+      comets[cometCount].y = yPos;
+      comets[cometCount].hitEnd=0;
+      if(size){
+	comets[cometCount].shape = 0xff;           //whole chunk comet
+	size =0;
+      }else{
+	comets[cometCount].shape = 0xf0;           //half chunk comet
+	size =1;
+	}
+      cometCount++;
+    }else{
+      cometCount = 0;
+    }
+    cf = COMET_FREQUENCY;
+  } 
+}
+
+
+void updateComets()                                 //updates comets in array
+{
+  int index;
+  for(index = 0; index < MAX_COMETS; index++){
+    if(comets[index].x == 0){                      //if the comet has reached the end
+      clearComet(comets[index].x, comets[index].y);
+      comets[index].x = 99;               //99 is used as a flag to indicate comet reached end
+      comets[index].y = 0;
+      comets[index].hitEnd = 1;
+      if (comets[index].hitEnd == 1){ 
+	updateScore(-1);
+      }
+    }
+    if(comets[index].y !=0){
+      comets[index].x--;
+      drawComet(comets[index].x, comets[index].y, comets[index].shape);
+    }
+  }
+}
