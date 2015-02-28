@@ -1,0 +1,74 @@
+#include "drawShip.h"
+
+#define min(a,b) ((a)<(b)?(a):(b))
+#define max(a,b) ((a)>(b)?(a):(b))
+
+#define shipSize 2		/* # of pixels above and below ship position middle */
+#define shipSize2 1
+
+// old ship top and bottoms
+
+static u_char oldshipTopYMajor, oldshipBotYMajor;
+static u_char oldshipTopYMajor2, oldshipBotYMajor2;
+
+// masks used to clear bits from chunks
+// least significant i bits are 1 in chunkMasks[i] 
+static const u_char chunkMasks[9] = {0x0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff};
+
+void drawShip(u_char yPos)	/* ypos is middle of ship */
+{
+  char shipTopYMajor = lcd_getYMajor(yPos-shipSize);
+  char shipBotYMajor = lcd_getYMajor(yPos+shipSize);
+
+  char shipTopYMajor2 = lcd_getYMajor(yPos-shipSize2);
+  char shipBotYMajor2 = lcd_getYMajor(yPos+shipSize2);
+
+
+  u_char yMajor; /* yMajor row index */
+  u_char yMajor2;
+  u_char yMajorLimit = max(shipBotYMajor, oldshipBotYMajor); /* max yMajor affected */
+  u_char yMajorLimit2 = max(shipBotYMajor2, oldshipBotYMajor2); /* max yMajor affected */
+
+  /* write each affected yMajor exactly once */
+  for (yMajor = min(shipTopYMajor, oldshipTopYMajor); /* min yMajor affected */
+       yMajor <= yMajorLimit;				  /* max yMajor affected */
+       yMajor++) {
+    lcd_setAddr(0, yMajor);
+    if (yMajor < shipTopYMajor || yMajor > shipBotYMajor) 
+      lcd_writeChunk(0);	/* erase if above or below ship */
+    else {
+      u_char chunk = 0xffu;	       /* default: all pixels on */
+      if (yMajor == shipTopYMajor) { /* top chunk, clear top pixels */
+	chunk &= ~chunkMasks[lcd_getYMinor(yPos-shipSize)];
+      }
+      if (yMajor == shipBotYMajor) { /* bot chunk, clear bottom pixels */
+	chunk &= chunkMasks[1+lcd_getYMinor(yPos+shipSize)];
+      }
+      lcd_writeChunk(chunk);
+    }
+  }
+
+  for (yMajor2 = min(shipTopYMajor2, oldshipTopYMajor2); /* min yMajor affected */
+       yMajor2 <= yMajorLimit2;				  /* max yMajor affected */
+       yMajor2++) {
+    lcd_setAddr(1, yMajor2);
+    if (yMajor2 < shipTopYMajor2 || yMajor2 > shipBotYMajor2) 
+      lcd_writeChunk(0);	/* erase if above or below ship */
+    else {
+      u_char chunk = 0xffu;	       /* default: all pixels on */
+      if (yMajor2 == shipTopYMajor2) { /* top chunk, clear top pixels */
+	chunk &= ~chunkMasks[lcd_getYMinor(yPos-shipSize2)];
+      }
+      if (yMajor2 == shipBotYMajor2) { /* bot chunk, clear bottom pixels */
+	chunk &= chunkMasks[1+lcd_getYMinor(yPos+shipSize2)];
+      }
+      lcd_writeChunk(chunk);
+    }
+  }
+  oldshipBotYMajor = shipBotYMajor; /* remember state */
+  oldshipTopYMajor = shipTopYMajor;
+  oldshipBotYMajor2 = shipBotYMajor2; /* remember state */
+  oldshipTopYMajor2 = shipTopYMajor2;
+
+
+}
