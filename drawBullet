@@ -1,0 +1,68 @@
+#include <stdlib.h>
+#include "lcd_utils.h"
+#include "lcd_char.h"
+#include "drawBullet.h"
+
+#define BULLET_COOLDOWN 1
+
+int shots = 0;                              //keeps count of total shots on screen
+int cooldown = BULLET_COOLDOWN;             //controls bullet firing speed
+
+
+void clearBullet(u_char x, u_char y)        //clearBullet erases bullets from the lcd screen
+{
+  u_char yMajor = lcd_getYMajor(y);
+  lcd_writeChunkAddr(0, x, yMajor); lcd_writeChunk(0);
+}
+
+
+void drawBullet(u_char x, u_char y)         //drawBullet redraws the given bullet and clears 
+{                                           //the previous one
+  u_char majorYTop = lcd_getYMajor(y);
+  u_char minorYTop = lcd_getYMinor(y);
+  
+  // Clear the ball
+  clearBullet(x-1, y);
+  
+  u_char chunk = (1 << minorYTop);
+  lcd_writeChunkAddr(chunk, x, majorYTop);
+  lcd_writeChunk(chunk);
+  
+}
+
+    
+void makeShot(u_char yPos)                //makeShot adds a bullet to the bullet array
+{                                         //after the cooldown is decremented to 0
+  cooldown--;
+  if(cooldown == 0){
+    if(shots < MAX_BULLETS){
+      bullets[shots].x = 2;
+      bullets[shots].y = yPos;
+      shots++;
+    }else{
+      shots = 0;
+    }
+    cooldown = BULLET_COOLDOWN;          //reset cooldown
+  }
+}
+
+
+void updateShots()                       //utilized in timer to continually redraw bullets
+{
+  int index;
+  for(index = 0; index < MAX_BULLETS; index++){
+
+    if(bullets[index].x == 90){          //if the bullet has reached the end of the screen
+      clearBullet(bullets[index].x, bullets[index].y);
+      clearBullet(bullets[index].x-1, bullets[index].y);
+      bullets[index].x = 0;
+      bullets[index].y = 0;
+    }
+    if(bullets[index].x !=0){           //if the bullet is still on screen           
+	bullets[index].x++;
+	drawBullet(bullets[index].x, bullets[index].y);
+    }
+  }
+}
+
+
