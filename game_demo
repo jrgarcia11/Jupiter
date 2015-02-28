@@ -1,0 +1,153 @@
+#include <msp430g2553.h>
+#include <stdlib.h>
+#include "lcd_utils.h"
+#include "lcd_char.h"
+#include "drawShip.h" 
+#include "drawBullet.h"
+#include "drawComet.h"
+#include "checkCollision.h"
+#include "screens.h"
+
+#define SHIP_START_POSITION 30
+#define WIN_SCORE 25
+
+/* global vars */
+u_char shipY = SHIP_START_POSITION;
+u_char setScreen1 = 30;            //time for screen intro
+int score = 0;
+int winflag = 0;
+
+
+void initialize(void);
+
+
+void mcOsc1MHz(void) 		/* set master clock to 1MHz */
+{ 
+  BCSCTL1 = CALBC1_1MHZ;        // Set range 
+  DCOCTL = CALDCO_1MHZ;	   
+  BCSCTL2 &= ~(DIVS_3);         // SMCLK = DCO / 8 = 1MHz 
+} 
+
+
+void main(void) 
+{  
+  WDTCTL = WDTPW + WDTHOLD;     // Stop watchdog timer
+  lcdinit();                    // init LCD (also: CPU clock to 16MHz)
+  lcd_setAddr(0,3);
+  CCTL0 = CCIE;                 // CCR0 interrupt enabled
+  TACTL = TASSEL_2 + MC_1 + ID_3; // Set timer clock to CPU clock/8
+  CCR0 = 50000;			// Interrupt every 10 ms
+  initialize();
+  or_sr(0x18);			// CPU off, GIE on
+}  
+
+
+/* 
+far right switch - on port 1
+ */
+interrupt(PORT1_VECTOR) Port_1(void)
+{
+  makeShot(shipY);
+  P1IFG &= ~SW1;                /* clear pending buttong iterrupts*/
+  P2IFG &= ~(SW2+SW3+SW4+SW5); 
+}
+
+
+void updateShip(void)
+{
+  // check if up switch is pressed
+  if (!(P2IN & SW4))  {
+    if (shipY > 6)
+        shipY--;
+    drawShip(shipY);
+  }
+  // check if down switch is pressed
+  if (!(P2IN & SW3)) {
+    shipY++;
+    drawShip(shipY);
+  }
+}
+
+
+void youWin()                   //when score threshold is met, this method is executed
+{
+    lcdclear();
+    score = 0;
+    int i; int j;
+
+    for(i = 0; i < MAX_BULLETS; i++){      //clear bullet array
+      bullets[i].x = 0; bullets[i].y = 0;
+    }
+    for(j = 0; j < MAX_COMETS; j++){      //clear comet array
+      comets[j].x = 0; comets[j].y = 0; comets[j].shape = 0;
+    }
+    lcd_writeString("YOU WIN",30,3);      //win message
+    winflag = 0;                          //reset winflag
+ }
+
+
+void drawScore(int s)     //used in timer to keep redrawing score
+{
+  // convert integer to chars
+  char ns[] = "     ";
+  itoa(s, ns, 10);
+  lcd_writeString(ns,72,0);
+}
+
+
+void updateScore(int point)              //adds and subtracts from score
+{ 
+  char numString[] = "     ";
+  
+  // increase count for each pass
+  if(score ==0 && point == -1){         //score cannot go negative
+    score =0;
+  }else{
+  score+=point;
+  }
+  if(score == WIN_SCORE){ winflag = 1; }  //winning score amount to activate winflag
+
+  // blank score area
+  lcd_writeString("     ",72,0);
+  
+  // write score to screen
+  drawScore(score);
+}
+
+
+/* timer interrupt */
+interrupt(TIMER0_A0_VECTOR) Timer_0(void)
+{
+  static int clockDivide =0;
+  if(clockDivide ++ >1){
+    if(setScreen1){
+      welcomeScreen();               //welcome screen only at beginning of game
+      setScreen1--;
+    }else{
+      if(winflag){
+	youWin();                   //execute youWin method if winflag is 1
+      }
+      else{
+	makeComet((u_char)rand()%67); //timer randomly makes comets between 0-67 window size
+      }
+
+      updateShots();                //updates bullet array 
+      updateComets();               //updates comets array
+      checkCollision();             //checks for collisions
+      drawScore(score);             //redraws score
+    }
+    clockDivide =0;
+  }
+  updateShip();                    //updates ship position
+
+  P1IFG &= ~SW1;          	/* clear pending button interrupts */
+  P2IFG &= ~(SW2+SW3+SW4+SW5); 
+}
+
+  
+void initialize(void)
+{
+  shipY = SHIP_START_POSITION;  
+  drawShip(shipY);             //param is y position
+}
+
